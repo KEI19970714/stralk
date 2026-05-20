@@ -3,6 +3,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --font-geist-sans: Arial, Helvetica, sans-serif;
+  --font-geist-mono: "Courier New", Courier, monospace;
 }
 
 @theme inline {
@@ -23,4 +25,247 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+html,
+body {
+  min-height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.mobile-shell {
+  height: 100vh;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+}
+
+.mobile-video-stack {
+  height: calc(100vh - 214px - env(safe-area-inset-bottom));
+  height: calc(100dvh - 214px - env(safe-area-inset-bottom));
+}
+
+.mobile-control-dock {
+  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  transform: translateZ(0);
+}
+
+.video-panel {
+  animation: softFadeIn 420ms ease both;
+  transform: translateZ(0);
+}
+
+.video-panel-connected {
+  animation: connectSettle 520ms ease both;
+}
+
+.status-pill {
+  color: #ffffff;
+  transition:
+    border-color 220ms ease,
+    background-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.status-pill-searching {
+  box-shadow:
+    0 0 22px rgb(139 92 246 / 0.28),
+    inset 0 0 18px rgb(255 255 255 / 0.04);
+}
+
+.status-pill-searching span:first-child {
+  animation: statusPulse 1.35s ease-in-out infinite;
+}
+
+.status-pill-connected {
+  border-color: rgb(52 211 153 / 0.28);
+  box-shadow: 0 0 24px rgb(52 211 153 / 0.2);
+}
+
+.status-pill-connected span:first-child {
+  box-shadow: 0 0 14px rgb(52 211 153 / 0.9);
+}
+
+.searching-orb {
+  width: 62px;
+  height: 62px;
+  border-radius: 9999px;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  background:
+    radial-gradient(circle, rgb(255 255 255 / 0.16), transparent 58%),
+    rgb(139 92 246 / 0.18);
+  box-shadow:
+    0 0 40px rgb(139 92 246 / 0.42),
+    inset 0 0 24px rgb(255 255 255 / 0.08);
+  animation: searchingGlow 1.45s ease-in-out infinite;
+}
+
+.action-card {
+  will-change: transform;
+  transition:
+    transform 140ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease;
+}
+
+.pressable:active {
+  transform: scale(0.965);
+}
+
+.start-card:not(:disabled) {
+  animation: startBreath 2.4s ease-in-out infinite;
+}
+
+.start-card-searching {
+  box-shadow:
+    0 0 26px rgb(139 92 246 / 0.35),
+    inset 0 0 22px rgb(255 255 255 / 0.04);
+  animation: startSearching 1.25s ease-in-out infinite;
+}
+
+.start-card-searching .start-icon {
+  animation: loadingDots 1s steps(4, end) infinite;
+}
+
+.message-bubble {
+  animation: bubbleIn 220ms ease both;
+  transform-origin: left bottom;
+}
+
+@supports (-webkit-touch-callout: none) {
+  .mobile-shell {
+    min-height: -webkit-fill-available;
+  }
+
+  .mobile-video-stack {
+    height: calc(100dvh - 214px - env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-video-stack {
+    height: calc(100vh - env(safe-area-inset-top));
+    height: calc(100dvh - env(safe-area-inset-top));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-panel,
+  .video-panel-connected,
+  .status-pill-searching span:first-child,
+  .searching-orb,
+  .start-card,
+  .start-card-searching,
+  .start-card-searching .start-icon,
+  .message-bubble {
+    animation: none;
+  }
+
+  .action-card,
+  .status-pill {
+    transition: none;
+  }
+}
+
+@keyframes softFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) translateZ(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateZ(0);
+  }
+}
+
+@keyframes connectSettle {
+  0% {
+    filter: saturate(0.86) brightness(0.86);
+  }
+  100% {
+    filter: saturate(1) brightness(1);
+  }
+}
+
+@keyframes statusPulse {
+  0%,
+  100% {
+    opacity: 0.58;
+    box-shadow: 0 0 0 0 rgb(196 181 253 / 0.45);
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 0 7px rgb(196 181 253 / 0);
+    transform: scale(1.08);
+  }
+}
+
+@keyframes searchingGlow {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes startBreath {
+  0%,
+  100% {
+    box-shadow: 0 0 18px rgb(139 92 246 / 0.12);
+  }
+  50% {
+    box-shadow: 0 0 28px rgb(139 92 246 / 0.24);
+  }
+}
+
+@keyframes startSearching {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.985);
+  }
+}
+
+@keyframes loadingDots {
+  0% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes bubbleIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

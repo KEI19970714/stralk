@@ -2,19 +2,40 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the Next.js app and Socket.IO signaling server together:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+This runs:
+
+- Next.js on [http://localhost:3000](http://localhost:3000)
+- Socket.IO signaling server on `http://localhost:3001`
+
+Open [http://localhost:3000](http://localhost:3000) with your browser.
+
+## Environment Variables
+
+Create `.env.local` for local development:
+
+```bash
+NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
+```
+
+`NEXT_PUBLIC_SOCKET_URL` must point to the Socket.IO signaling server URL. If it is not set, the app falls back to `http://localhost:3001`.
+
+For production deployments such as Vercel, Render, or Railway, set `NEXT_PUBLIC_SOCKET_URL` in the platform environment variables to the public HTTPS URL of the Socket.IO server, for example:
+
+```bash
+NEXT_PUBLIC_SOCKET_URL=https://your-socket-server.example.com
+```
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

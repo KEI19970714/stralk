@@ -1,0 +1,19 @@
+
+> stralk@0.1.0 dev
+> concurrently "npm run dev:next" "npm run dev:socket"
+
+[0] 
+[0] > stralk@0.1.0 dev:next
+[0] > next dev
+[0] 
+[1] 
+[1] > stralk@0.1.0 dev:socket
+[1] > node server.js
+[1] 
+[1] Socket.IO server running on port 3001
+[0] ▲ Next.js 16.2.6 (Turbopack)
+[0] - Local:         http://localhost:3000
+[0] - Network:       http://192.168.11.4:3000
+[0] - Environments: .env.local
+[0] ✓ Ready in 431ms
+[0] 

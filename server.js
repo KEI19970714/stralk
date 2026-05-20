@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { createServer } = require("http");
 const { Server } = require("socket.io");
 
@@ -8,137 +9,317 @@ const io = new Server(httpServer, {
     origin: "*",
   },
 });
-let waitingUser = null;
 
-io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+const queues = new Map();
+const queuedSocketIds = new Set();
 
-  socket.on("start searching", () => {
-    if (waitingUser) {
-      const roomId = `room-${waitingUser.id}-${socket.id}`;
+function normalizeCriteria(payload = {}) {
+  return {
+    country:
+      typeof payload.country === "string" && payload.country.trim()
+        ? payload.country.trim()
+        : "Global",
+    comment:
+      typeof payload.comment === "string" && payload.comment.trim()
+        ? payload.comment.trim()
+        : "",
+  };
+}
 
-      waitingUser.join(roomId);
-      socket.join(roomId);
+function getQueueKey(criteria) {
+  return `country:${criteria.country}`;
+}
 
-      waitingUser.emit("matched", { initiator: true });
-      socket.emit("matched", { initiator: false });
+function getQueue(key) {
+  if (!queues.has(key)) {
+    queues.set(key, []);
+  }
 
-      waitingUser.roomId = roomId;
-      socket.roomId = roomId;
+  return queues.get(key);
+}
 
-      console.log("Matched:", roomId);
+function getSocket(id) {
+  return io.sockets.sockets.get(id);
+}
 
-      waitingUser = null;
+function isMatchable(entry) {
+  const socket = getSocket(entry.socketId);
+
+  return (
+    socket &&
+    socket.connected &&
+    queuedSocketIds.has(socket.id) &&
+    !socket.data.roomId
+  );
+}
+
+function compactQueue(key) {
+  const queue = getQueue(key);
+  const compacted = [];
+
+  for (const entry of queue) {
+    if (isMatchable(entry)) {
+      compacted.push(entry);
     } else {
-      waitingUser = socket;
-
-      console.log("Waiting for partner...");
+      queuedSocketIds.delete(entry.socketId);
     }
+  }
+
+  queues.set(key, compacted);
+
+  return compacted;
+}
+
+function removeFromQueue(socket) {
+  const key = socket.data.queueKey;
+
+  queuedSocketIds.delete(socket.id);
+  socket.data.searching = false;
+  socket.data.queueKey = null;
+
+  if (!key || !queues.has(key)) {
+    return;
+  }
+
+  const queue = queues.get(key).filter((entry) => entry.socketId !== socket.id);
+
+  if (queue.length > 0) {
+    queues.set(key, queue);
+  } else {
+    queues.delete(key);
+  }
+}
+
+function createRoomId(socketA, socketB) {
+  return `room-${socketA.id}-${socketB.id}-${Date.now()}`;
+}
+
+function markMatched(socket, roomId) {
+  queuedSocketIds.delete(socket.id);
+  socket.data.searching = false;
+  socket.data.queueKey = null;
+  socket.data.roomId = roomId;
+  socket.roomId = roomId;
+  socket.join(roomId);
+}
+
+function matchSockets(socketA, socketB) {
+  if (!socketA || !socketB || socketA.id === socketB.id) {
+    return false;
+  }
+
+  if (socketA.data.roomId || socketB.data.roomId) {
+    return false;
+  }
+
+  const roomId = createRoomId(socketA, socketB);
+
+  markMatched(socketA, roomId);
+  markMatched(socketB, roomId);
+
+  socketA.emit("matched", {
+    initiator: true,
+    partnerComment: socketB.data.criteria?.comment ?? "",
+  });
+  socketB.emit("matched", {
+    initiator: false,
+    partnerComment: socketA.data.criteria?.comment ?? "",
   });
 
-  socket.on("next", () => {
-    if (waitingUser === socket) {
-      waitingUser = null;
+  console.log("Matched:", roomId);
+
+  return true;
+}
+
+function tryMatch(key) {
+  const queue = compactQueue(key);
+
+  while (queue.length > 1) {
+    const first = queue.shift();
+    queuedSocketIds.delete(first.socketId);
+
+    const secondIndex = queue.findIndex(
+      (entry) => entry.socketId !== first.socketId,
+    );
+
+    if (secondIndex === -1) {
+      queue.unshift(first);
+      queuedSocketIds.add(first.socketId);
+      break;
     }
 
-    if (socket.roomId) {
-      const roomId = socket.roomId;
-      const room = io.sockets.adapter.rooms.get(roomId);
+    const [second] = queue.splice(secondIndex, 1);
+    queuedSocketIds.delete(second.socketId);
 
-      if (room) {
-        room.forEach((id) => {
-          if (id !== socket.id) {
-            const partnerSocket = io.sockets.sockets.get(id);
+    const firstSocket = getSocket(first.socketId);
+    const secondSocket = getSocket(second.socketId);
 
-            if (partnerSocket) {
-              partnerSocket.leave(roomId);
-              partnerSocket.roomId = null;
-              // 相手に通知するだけ。再検索はフロントからの start searching に任せる
-              partnerSocket.emit("partner disconnected");
-              console.log(
-                "next pressed by:",
-                socket.id,
-                "roomId:",
-                socket.roomId,
-              ); // 追加
-            }
-          }
-        });
+    if (!matchSockets(firstSocket, secondSocket)) {
+      if (firstSocket && firstSocket.connected && !firstSocket.data.roomId) {
+        enqueue(firstSocket, first.criteria);
       }
 
-      socket.leave(roomId);
-      socket.roomId = null;
+      if (secondSocket && secondSocket.connected && !secondSocket.data.roomId) {
+        enqueue(secondSocket, second.criteria);
+      }
+    }
+  }
+
+  if (queue.length > 0) {
+    queues.set(key, queue);
+  } else {
+    queues.delete(key);
+  }
+}
+
+function enqueue(socket, criteria = normalizeCriteria()) {
+  if (
+    !socket.connected ||
+    socket.data.roomId ||
+    queuedSocketIds.has(socket.id)
+  ) {
+    return;
+  }
+
+  const key = getQueueKey(criteria);
+  const queue = getQueue(key);
+
+  queuedSocketIds.add(socket.id);
+  socket.data.searching = true;
+  socket.data.queueKey = key;
+  socket.data.criteria = criteria;
+
+  queue.push({
+    socketId: socket.id,
+    criteria,
+    queuedAt: Date.now(),
+  });
+
+  console.log("Waiting for partner:", socket.id, key);
+
+  tryMatch(key);
+}
+
+function cleanupRoom(socket, { notifyPartner = true } = {}) {
+  const roomId = socket.data.roomId || socket.roomId;
+
+  if (!roomId) {
+    return;
+  }
+
+  const room = io.sockets.adapter.rooms.get(roomId);
+  const partnerIds = room ? [...room].filter((id) => id !== socket.id) : [];
+
+  socket.leave(roomId);
+  socket.data.roomId = null;
+  socket.roomId = null;
+
+  for (const partnerId of partnerIds) {
+    const partnerSocket = getSocket(partnerId);
+
+    if (!partnerSocket) {
+      continue;
     }
 
-    // next押した本人も再検索
-    if (waitingUser) {
-      const newRoomId = `room-${waitingUser.id}-${socket.id}`;
-      waitingUser.join(newRoomId);
-      socket.join(newRoomId);
-      waitingUser.emit("matched", { initiator: true });
-      socket.emit("matched", { initiator: false });
-      waitingUser.roomId = newRoomId;
-      socket.roomId = newRoomId;
-      waitingUser = null;
-    } else {
-      waitingUser = socket;
+    partnerSocket.leave(roomId);
+    partnerSocket.data.roomId = null;
+    partnerSocket.roomId = null;
+
+    if (notifyPartner) {
+      partnerSocket.emit("partner disconnected");
     }
+  }
+}
+
+io.on("connection", (socket) => {
+  socket.data.roomId = null;
+  socket.data.queueKey = null;
+  socket.data.searching = false;
+  socket.data.criteria = normalizeCriteria();
+
+  console.log("User connected:", socket.id);
+
+  socket.on("start searching", (payload = {}) => {
+    const criteria = normalizeCriteria(payload);
+
+    socket.data.criteria = criteria;
+    enqueue(socket, criteria);
+  });
+
+  socket.on("next", (payload = {}) => {
+    const hasPayload =
+      payload && typeof payload === "object" && Object.keys(payload).length > 0;
+    const criteria =
+      hasPayload
+        ? normalizeCriteria(payload)
+        : socket.data.criteria || normalizeCriteria();
+
+    removeFromQueue(socket);
+    cleanupRoom(socket);
+    enqueue(socket, criteria);
   });
 
   socket.on("offer", ({ offer }) => {
-    socket.to(socket.roomId).emit("offer", offer);
+    if (!socket.data.roomId) {
+      return;
+    }
+
+    socket.to(socket.data.roomId).emit("offer", offer);
   });
 
   socket.on("answer", ({ answer }) => {
-    socket.to(socket.roomId).emit("answer", answer);
+    if (!socket.data.roomId) {
+      return;
+    }
+
+    socket.to(socket.data.roomId).emit("answer", answer);
   });
 
   socket.on("ice-candidate", ({ candidate }) => {
-    socket.to(socket.roomId).emit("ice-candidate", candidate);
+    if (!socket.data.roomId) {
+      return;
+    }
+
+    socket.to(socket.data.roomId).emit("ice-candidate", candidate);
   });
 
   socket.on("chat message", (msg) => {
+    if (!socket.data.roomId) {
+      return;
+    }
+
     console.log("Message:", msg);
 
-    socket.to(socket.roomId).emit("chat message", msg);
+    socket.to(socket.data.roomId).emit("chat message", msg);
+  });
+
+  socket.on("comment update", ({ comment }) => {
+    const normalizedComment = typeof comment === "string" ? comment.trim() : "";
+
+    socket.data.criteria = socket.data.criteria || normalizeCriteria();
+    socket.data.criteria.comment = normalizedComment;
+
+    if (!socket.data.roomId) {
+      return;
+    }
+
+    socket.to(socket.data.roomId).emit("comment update", {
+      comment: normalizedComment,
+    });
   });
 
   socket.on("disconnect", () => {
-    if (waitingUser === socket) {
-      waitingUser = null;
-    }
+    removeFromQueue(socket);
+    cleanupRoom(socket);
 
     console.log("User disconnected:", socket.id);
   });
 
   socket.on("stop searching", () => {
-    if (waitingUser === socket) {
-      waitingUser = null;
-    }
+    removeFromQueue(socket);
+    cleanupRoom(socket);
 
-    // 追加：相手に通知
-    if (socket.roomId) {
-      const roomId = socket.roomId;
-      const room = io.sockets.adapter.rooms.get(roomId);
-
-      if (room) {
-        room.forEach((id) => {
-          if (id !== socket.id) {
-            const partnerSocket = io.sockets.sockets.get(id);
-            if (partnerSocket) {
-              partnerSocket.leave(roomId);
-              partnerSocket.roomId = null;
-              partnerSocket.emit("partner disconnected");
-            }
-          }
-        });
-      }
-
-      socket.leave(roomId);
-      socket.roomId = null;
-    }
-
-    console.log("Stopped searching");
+    console.log("Stopped searching:", socket.id);
   });
 });
 
