@@ -15,7 +15,9 @@ export default function Home() {
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
-  const localStreamPromiseRef = useRef<Promise<MediaStream> | null>(null);
+  const localStreamPromiseRef = useRef<Promise<MediaStream | null> | null>(
+    null,
+  );
   const localStreamRequestRef = useRef(0);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const connectionAttemptRef = useRef(0);
@@ -28,7 +30,7 @@ export default function Home() {
   const [strangerComment, setStrangerComment] = useState("");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isDesktop, setIsDesktop] = useState(false);
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
   const commentRef = useRef(comment);
   const countryRef = useRef(country);
 
@@ -80,7 +82,7 @@ export default function Home() {
     return stream?.getTracks().some((track) => track.readyState === "live");
   }, []);
 
-  const ensureLocalStream = useCallback(async () => {
+  const ensureLocalStream = useCallback(async (): Promise<MediaStream | null> => {
     if (hasLiveTracks(localStreamRef.current)) {
       attachLocalStream(localStreamRef.current!);
       return localStreamRef.current!;
@@ -88,7 +90,9 @@ export default function Home() {
 
     if (localStreamPromiseRef.current) {
       const stream = await localStreamPromiseRef.current;
-      attachLocalStream(stream);
+      if (stream) {
+        attachLocalStream(stream);
+      }
       return stream;
     }
 
@@ -102,7 +106,7 @@ export default function Home() {
       .then((stream) => {
         if (requestId !== localStreamRequestRef.current) {
           stream.getTracks().forEach((track) => track.stop());
-          throw new Error("Local media request cancelled");
+          return null;
         }
 
         localStreamRef.current = stream;
@@ -253,7 +257,11 @@ export default function Home() {
     cleanupConnection();
 
     try {
-      await ensureLocalStream();
+      const stream = await ensureLocalStream();
+
+      if (!stream) {
+        return;
+      }
 
       if (!wantsSearchRef.current) {
         return;
@@ -283,7 +291,11 @@ export default function Home() {
     cleanupConnection();
 
     try {
-      await ensureLocalStream();
+      const stream = await ensureLocalStream();
+
+      if (!stream) {
+        return;
+      }
 
       if (!wantsSearchRef.current) {
         return;
@@ -337,7 +349,11 @@ export default function Home() {
       const attemptId = connectionAttemptRef.current;
 
       try {
-        await ensureLocalStream();
+        const stream = await ensureLocalStream();
+
+        if (!stream) {
+          return;
+        }
       } catch (error) {
         console.error("Camera error:", error);
         setStatus("Idle");
@@ -396,7 +412,11 @@ export default function Home() {
 
     const handleOffer = async (offer: RTCSessionDescriptionInit) => {
       try {
-        await ensureLocalStream();
+        const stream = await ensureLocalStream();
+
+        if (!stream) {
+          return;
+        }
 
         const pc = createPeerConnection(socket);
 
@@ -555,6 +575,10 @@ export default function Home() {
     handleEndAction,
     handleReportAction,
   };
+
+  if (isDesktop === null) {
+    return null;
+  }
 
   return isDesktop ? (
     <DesktopLayout {...layoutProps} />
