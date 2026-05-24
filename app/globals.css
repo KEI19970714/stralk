@@ -5,6 +5,8 @@
   --foreground: #171717;
   --font-geist-sans: Arial, Helvetica, sans-serif;
   --font-geist-mono: "Courier New", Courier, monospace;
+  --app-height: 100vh;
+  --mobile-dock-height: 112px;
 }
 
 @theme inline {
@@ -46,19 +48,36 @@ select {
 }
 
 .mobile-shell {
+  display: flex;
+  flex-direction: column;
   height: 100vh;
+  height: 100svh;
   height: 100dvh;
+  height: var(--app-height);
   padding-top: env(safe-area-inset-top);
 }
 
 .mobile-video-stack {
-  height: calc(100vh - 214px - env(safe-area-inset-bottom));
-  height: calc(100dvh - 214px - env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
 }
 
 .mobile-control-dock {
-  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+  pointer-events: auto;
+  padding-bottom: max(2px, env(safe-area-inset-bottom));
+  touch-action: manipulation;
   transform: translateZ(0);
+}
+
+.mobile-control-dock button,
+.mobile-control-dock input,
+.mobile-control-dock label,
+.mobile-control-dock select {
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .video-panel {
@@ -152,12 +171,20 @@ select {
   }
 
   .mobile-video-stack {
-    height: calc(100dvh - 214px - env(safe-area-inset-bottom));
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
   }
 }
 
 @media (min-width: 768px) {
+  .mobile-shell {
+    display: flex;
+  }
+
   .mobile-video-stack {
+    flex: initial;
+    min-height: initial;
     height: calc(100vh - env(safe-area-inset-top));
     height: calc(100dvh - env(safe-area-inset-top));
   }

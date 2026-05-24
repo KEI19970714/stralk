@@ -1,8 +1,20 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { createServer } = require("http");
+const fs = require("fs");
+const http = require("http");
+const https = require("https");
+const path = require("path");
 const { Server } = require("socket.io");
 
-const httpServer = createServer();
+const certPath = path.join(__dirname, "certificates", "cert.pem");
+const keyPath = path.join(__dirname, "certificates", "key.pem");
+const hasHttpsCertificates = fs.existsSync(certPath) && fs.existsSync(keyPath);
+
+const httpServer = hasHttpsCertificates
+  ? https.createServer({
+      cert: fs.readFileSync(certPath),
+      key: fs.readFileSync(keyPath),
+    })
+  : http.createServer();
 
 const io = new Server(httpServer, {
   cors: {
@@ -249,10 +261,9 @@ io.on("connection", (socket) => {
   socket.on("next", (payload = {}) => {
     const hasPayload =
       payload && typeof payload === "object" && Object.keys(payload).length > 0;
-    const criteria =
-      hasPayload
-        ? normalizeCriteria(payload)
-        : socket.data.criteria || normalizeCriteria();
+    const criteria = hasPayload
+      ? normalizeCriteria(payload)
+      : socket.data.criteria || normalizeCriteria();
 
     removeFromQueue(socket);
     cleanupRoom(socket);
@@ -324,5 +335,7 @@ io.on("connection", (socket) => {
 });
 
 httpServer.listen(3001, () => {
-  console.log("Socket.IO server running on port 3001");
+  console.log(
+    `Socket.IO server running on ${hasHttpsCertificates ? "https" : "http"} port 3001`,
+  );
 });
