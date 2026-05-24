@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { HomeLayoutProps } from "./layoutTypes";
 
 export function MobileLayout({
@@ -22,6 +23,25 @@ export function MobileLayout({
   handleEndAction,
   handleReportAction,
 }: HomeLayoutProps) {
+  const [isChatDimmed, setIsChatDimmed] = useState(false);
+
+  const chatDimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetChatDimTimer = useCallback(() => {
+    setIsChatDimmed(false);
+    if (chatDimTimerRef.current) {
+      clearTimeout(chatDimTimerRef.current);
+    }
+    chatDimTimerRef.current = setTimeout(() => {
+      setIsChatDimmed(true);
+    }, 5000);
+  }, []);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    resetChatDimTimer();
+  }, [messages.length, resetChatDimTimer]);
+
   return (
     <main className="mobile-shell relative flex overflow-hidden bg-white text-white">
       <section className="mobile-video-stack relative z-0 flex min-h-0 flex-1 flex-col gap-1 p-1 pb-0 sm:mx-auto sm:max-w-md">
@@ -94,7 +114,8 @@ export function MobileLayout({
 
           <div
             ref={messagesContainerRef}
-            className="pointer-events-none absolute bottom-5 left-5 right-5 max-h-[58%] space-y-1.5 overflow-y-auto pr-1"
+            className="pointer-events-none absolute bottom-5 left-5 right-5 max-h-[58%] space-y-1.5 overflow-y-auto pr-1 transition-opacity duration-500"
+            style={{ opacity: isChatDimmed ? 0.3 : 1 }}
           >
             {messages.map((msg, index) => (
               <div
@@ -179,6 +200,7 @@ export function MobileLayout({
             type="text"
             placeholder="Type a message..."
             value={message}
+            onFocus={resetChatDimTimer}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
