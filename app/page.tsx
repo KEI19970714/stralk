@@ -82,43 +82,44 @@ export default function Home() {
     return stream?.getTracks().some((track) => track.readyState === "live");
   }, []);
 
-  const ensureLocalStream = useCallback(async (): Promise<MediaStream | null> => {
-    if (hasLiveTracks(localStreamRef.current)) {
-      attachLocalStream(localStreamRef.current!);
-      return localStreamRef.current!;
-    }
-
-    if (localStreamPromiseRef.current) {
-      const stream = await localStreamPromiseRef.current;
-      if (stream) {
-        attachLocalStream(stream);
+  const ensureLocalStream =
+    useCallback(async (): Promise<MediaStream | null> => {
+      if (hasLiveTracks(localStreamRef.current)) {
+        attachLocalStream(localStreamRef.current!);
+        return localStreamRef.current!;
       }
-      return stream;
-    }
 
-    const requestId = localStreamRequestRef.current;
-
-    localStreamPromiseRef.current = navigator.mediaDevices
-      .getUserMedia({
-        video: true,
-        audio: true,
-      })
-      .then((stream) => {
-        if (requestId !== localStreamRequestRef.current) {
-          stream.getTracks().forEach((track) => track.stop());
-          return null;
+      if (localStreamPromiseRef.current) {
+        const stream = await localStreamPromiseRef.current;
+        if (stream) {
+          attachLocalStream(stream);
         }
-
-        localStreamRef.current = stream;
-        attachLocalStream(stream);
         return stream;
-      })
-      .finally(() => {
-        localStreamPromiseRef.current = null;
-      });
+      }
 
-    return localStreamPromiseRef.current;
-  }, [attachLocalStream, hasLiveTracks]);
+      const requestId = localStreamRequestRef.current;
+
+      localStreamPromiseRef.current = navigator.mediaDevices
+        .getUserMedia({
+          video: true,
+          audio: true,
+        })
+        .then((stream) => {
+          if (requestId !== localStreamRequestRef.current) {
+            stream.getTracks().forEach((track) => track.stop());
+            return null;
+          }
+
+          localStreamRef.current = stream;
+          attachLocalStream(stream);
+          return stream;
+        })
+        .finally(() => {
+          localStreamPromiseRef.current = null;
+        });
+
+      return localStreamPromiseRef.current;
+    }, [attachLocalStream, hasLiveTracks]);
 
   const cleanupConnection = useCallback(
     ({ stopLocalStream = false }: { stopLocalStream?: boolean } = {}) => {

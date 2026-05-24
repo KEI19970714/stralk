@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev:next\" \"npm run dev:socket\"",
+    "dev": "concurrently \"node next-server.js\" \"npm run dev:socket\"",
     "dev:next": "next dev",
     "dev:socket": "node server.js",
     "dev:https": "node scripts/generate-cert.mjs && concurrently \"next dev --experimental-https --experimental-https-key certificates/key.pem --experimental-https-cert certificates/cert.pem\" \"npm run dev:socket\"",
