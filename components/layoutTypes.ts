@@ -22,6 +22,7 @@ export type HomeLayoutProps = {
   reportReasons: ReportReason[];
   isReportOpen: boolean;
   reportFeedback: string;
+  banNotice: string;
   isSearching: boolean;
   isConnected: boolean;
   setCountry: Dispatch<SetStateAction<string>>;

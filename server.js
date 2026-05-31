@@ -24,6 +24,11 @@ const io = new Server(httpServer, {
 
 const queues = new Map();
 const queuedSocketIds = new Set();
+const reports = new Map();
+const bans = new Map();
+const REPORT_WINDOW_MS = 10 * 60 * 1000;
+const REPORT_THRESHOLD = 3;
+const BAN_DURATION_MS = 10 * 60 * 1000;
 
 function normalizeCriteria(payload = {}) {
   return {
@@ -52,6 +57,40 @@ function getQueue(key) {
 
 function getSocket(id) {
   return io.sockets.sockets.get(id);
+}
+
+function getActiveBanUntil(socketId) {
+  const bannedUntil = bans.get(socketId);
+
+  if (!bannedUntil) {
+    return null;
+  }
+
+  if (bannedUntil <= Date.now()) {
+    bans.delete(socketId);
+    return null;
+  }
+
+  return bannedUntil;
+}
+
+function notifyBan(socket, bannedUntil) {
+  socket.emit("ban-notice", {
+    until: new Date(bannedUntil).toISOString(),
+  });
+}
+
+function isBanned(socket) {
+  const bannedUntil = getActiveBanUntil(socket.id);
+
+  if (!bannedUntil) {
+    return false;
+  }
+
+  removeFromQueue(socket);
+  cleanupRoom(socket);
+  notifyBan(socket, bannedUntil);
+  return true;
 }
 
 function isMatchable(entry) {
@@ -187,6 +226,7 @@ function tryMatch(key) {
 function enqueue(socket, criteria = normalizeCriteria()) {
   if (
     !socket.connected ||
+    getActiveBanUntil(socket.id) ||
     socket.data.roomId ||
     queuedSocketIds.has(socket.id)
   ) {
@@ -243,6 +283,33 @@ function cleanupRoom(socket, { notifyPartner = true } = {}) {
   }
 }
 
+function banSocket(socket) {
+  const bannedUntil = Date.now() + BAN_DURATION_MS;
+
+  bans.set(socket.id, bannedUntil);
+  removeFromQueue(socket);
+  cleanupRoom(socket);
+  notifyBan(socket, bannedUntil);
+
+  console.log(
+    ["BAN", `User: ${socket.id}`, `Until: ${new Date(bannedUntil).toISOString()}`].join(
+      "\n",
+    ),
+  );
+}
+
+function recordReport(reportedSocketId) {
+  const now = Date.now();
+  const recentReports = (reports.get(reportedSocketId) || []).filter(
+    (reportedAt) => now - reportedAt <= REPORT_WINDOW_MS,
+  );
+
+  recentReports.push(now);
+  reports.set(reportedSocketId, recentReports);
+
+  return recentReports.length;
+}
+
 io.on("connection", (socket) => {
   socket.data.roomId = null;
   socket.data.queueKey = null;
@@ -252,6 +319,10 @@ io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
   socket.on("start searching", (payload = {}) => {
+    if (isBanned(socket)) {
+      return;
+    }
+
     const criteria = normalizeCriteria(payload);
 
     socket.data.criteria = criteria;
@@ -259,6 +330,10 @@ io.on("connection", (socket) => {
   });
 
   socket.on("next", (payload = {}) => {
+    if (isBanned(socket)) {
+      return;
+    }
+
     const hasPayload =
       payload && typeof payload === "object" && Object.keys(payload).length > 0;
     const criteria = hasPayload
@@ -329,6 +404,17 @@ io.on("connection", (socket) => {
         `Time: ${new Date().toISOString()}`,
       ].join("\n"),
     );
+
+    const reportCount = recordReport(reportedSocketId);
+    const reportedSocket = getSocket(reportedSocketId);
+
+    if (
+      reportCount >= REPORT_THRESHOLD &&
+      reportedSocket &&
+      !getActiveBanUntil(reportedSocket.id)
+    ) {
+      banSocket(reportedSocket);
+    }
   });
 
   socket.on("comment update", ({ comment }) => {

@@ -38,6 +38,7 @@ const REPORT_REASONS: ReportReason[] = [
   "Spam / Advertising",
   "Other",
 ];
+const BAN_NOTICE_TEXT = "You are temporarily banned. Please try again later.";
 
 export default function Home() {
   const myVideoRef = useRef<HTMLVideoElement>(null);
@@ -63,8 +64,10 @@ export default function Home() {
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportFeedback, setReportFeedback] = useState("");
+  const [banNotice, setBanNotice] = useState("");
   const commentRef = useRef(comment);
   const countryRef = useRef(country);
+  const bannedUntilRef = useRef<number | null>(null);
   const reportFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -202,6 +205,39 @@ export default function Home() {
     [],
   );
 
+  const showBanNotice = useCallback(
+    (until?: string) => {
+      const bannedUntil = until ? Date.parse(until) : NaN;
+
+      bannedUntilRef.current = Number.isNaN(bannedUntil) ? null : bannedUntil;
+      wantsSearchRef.current = false;
+      setStatus(BAN_NOTICE_TEXT);
+      setMessages([]);
+      setStrangerComment("");
+      setIsReportOpen(false);
+      setBanNotice(BAN_NOTICE_TEXT);
+      cleanupConnection({ stopLocalStream: true });
+    },
+    [cleanupConnection],
+  );
+
+  const isBanActive = useCallback(() => {
+    const bannedUntil = bannedUntilRef.current;
+
+    if (!bannedUntil) {
+      return false;
+    }
+
+    if (bannedUntil <= Date.now()) {
+      bannedUntilRef.current = null;
+      setBanNotice("");
+      return false;
+    }
+
+    showBanNotice(new Date(bannedUntil).toISOString());
+    return true;
+  }, [showBanNotice]);
+
   const flushIceCandidates = useCallback(async () => {
     const pc = peerConnection.current;
 
@@ -286,6 +322,10 @@ export default function Home() {
       return;
     }
 
+    if (isBanActive()) {
+      return;
+    }
+
     setStatus("Searching...");
     setMessages([]);
     setStrangerComment("");
@@ -311,12 +351,16 @@ export default function Home() {
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-  }, [cleanupConnection, ensureLocalStream, getSearchPayload]);
+  }, [cleanupConnection, ensureLocalStream, getSearchPayload, isBanActive]);
 
   const nextPartner = useCallback(async () => {
     const socket = socketRef.current;
 
     if (!socket) {
+      return;
+    }
+
+    if (isBanActive()) {
       return;
     }
 
@@ -345,7 +389,7 @@ export default function Home() {
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-  }, [cleanupConnection, ensureLocalStream, getSearchPayload]);
+  }, [cleanupConnection, ensureLocalStream, getSearchPayload, isBanActive]);
 
   const stopSearching = useCallback(() => {
     wantsSearchRef.current = false;
@@ -446,6 +490,10 @@ export default function Home() {
       setStrangerComment(incomingComment?.trim() ?? "");
     };
 
+    const handleBanNotice = ({ until }: { until?: string } = {}) => {
+      showBanNotice(until);
+    };
+
     const handleOffer = async (offer: RTCSessionDescriptionInit) => {
       try {
         const stream = await ensureLocalStream();
@@ -508,6 +556,7 @@ export default function Home() {
     socket.on("partner disconnected", handlePartnerDisconnected);
     socket.on("chat message", handleChatMessage);
     socket.on("comment update", handleCommentUpdate);
+    socket.on("ban-notice", handleBanNotice);
     socket.on("offer", handleOffer);
     socket.on("answer", handleAnswer);
     socket.on("ice-candidate", handleIceCandidate);
@@ -518,6 +567,7 @@ export default function Home() {
       socket.off("partner disconnected", handlePartnerDisconnected);
       socket.off("chat message", handleChatMessage);
       socket.off("comment update", handleCommentUpdate);
+      socket.off("ban-notice", handleBanNotice);
       socket.off("offer", handleOffer);
       socket.off("answer", handleAnswer);
       socket.off("ice-candidate", handleIceCandidate);
@@ -532,6 +582,7 @@ export default function Home() {
     ensureLocalStream,
     flushIceCandidates,
     getSearchPayload,
+    showBanNotice,
   ]);
 
   useEffect(() => {
@@ -634,6 +685,7 @@ export default function Home() {
     reportReasons: REPORT_REASONS,
     isReportOpen,
     reportFeedback,
+    banNotice,
     isSearching,
     isConnected,
     setCountry,

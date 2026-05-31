@@ -16,6 +16,7 @@ export function MobileLayout({
   reportReasons,
   isReportOpen,
   reportFeedback,
+  banNotice,
   isSearching,
   isConnected,
   setCountry,
@@ -83,6 +84,12 @@ export function MobileLayout({
       {reportFeedback && (
         <div className="pointer-events-none absolute left-1/2 top-4 z-[90] -translate-x-1/2 rounded-2xl bg-neutral-950 px-4 py-2 text-sm font-bold text-white shadow-xl">
           {reportFeedback}
+        </div>
+      )}
+
+      {banNotice && (
+        <div className="pointer-events-none absolute left-1/2 top-4 z-[90] w-[calc(100%-16px)] max-w-md -translate-x-1/2 rounded-2xl bg-red-600 px-4 py-2 text-center text-sm font-bold text-white shadow-xl">
+          {banNotice}
         </div>
       )}
 
