@@ -304,6 +304,33 @@ io.on("connection", (socket) => {
     socket.to(socket.data.roomId).emit("chat message", msg);
   });
 
+  socket.on("report-user", ({ reason } = {}) => {
+    const roomId = socket.data.roomId;
+
+    if (!roomId) {
+      return;
+    }
+
+    const room = io.sockets.adapter.rooms.get(roomId);
+    const reportedSocketId = room
+      ? [...room].find((socketId) => socketId !== socket.id)
+      : null;
+
+    if (!reportedSocketId) {
+      return;
+    }
+
+    console.log(
+      [
+        "REPORT",
+        `Reporter: ${socket.id}`,
+        `Reported: ${reportedSocketId}`,
+        `Reason: ${typeof reason === "string" ? reason : ""}`,
+        `Time: ${new Date().toISOString()}`,
+      ].join("\n"),
+    );
+  });
+
   socket.on("comment update", ({ comment }) => {
     const normalizedComment = typeof comment === "string" ? comment.trim() : "";
 

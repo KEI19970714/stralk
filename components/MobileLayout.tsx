@@ -13,6 +13,9 @@ export function MobileLayout({
   strangerComment,
   message,
   messages,
+  reportReasons,
+  isReportOpen,
+  reportFeedback,
   isSearching,
   isConnected,
   setCountry,
@@ -22,6 +25,8 @@ export function MobileLayout({
   handleStartAction,
   handleEndAction,
   handleReportAction,
+  handleReportReason,
+  handleReportClose,
 }: HomeLayoutProps) {
   const [isChatDimmed, setIsChatDimmed] = useState(false);
 
@@ -44,6 +49,43 @@ export function MobileLayout({
 
   return (
     <main className="mobile-shell relative flex overflow-hidden bg-white text-white">
+      {isReportOpen && (
+        <div className="absolute inset-0 z-[80] flex items-end bg-black/45 p-2">
+          <div className="w-full rounded-2xl border border-neutral-200 bg-white p-3 text-neutral-950 shadow-2xl sm:mx-auto sm:max-w-md">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-black">REPORT</h2>
+              <button
+                type="button"
+                onClick={handleReportClose}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 text-lg font-black text-neutral-700"
+                aria-label="Close report menu"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="grid gap-2">
+              {reportReasons.map((reason) => (
+                <button
+                  key={reason}
+                  type="button"
+                  onClick={() => handleReportReason(reason)}
+                  className="rounded-xl border border-neutral-200 bg-white px-3 py-3 text-left text-sm font-bold text-neutral-950"
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reportFeedback && (
+        <div className="pointer-events-none absolute left-1/2 top-4 z-[90] -translate-x-1/2 rounded-2xl bg-neutral-950 px-4 py-2 text-sm font-bold text-white shadow-xl">
+          {reportFeedback}
+        </div>
+      )}
+
       <section className="mobile-video-stack relative z-0 flex min-h-0 flex-1 flex-col gap-1 p-1 pb-0 sm:mx-auto sm:max-w-md">
         <div
           className={`video-panel relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl ${

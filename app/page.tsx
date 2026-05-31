@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DesktopLayout } from "@/components/DesktopLayout";
 import { MobileLayout } from "@/components/MobileLayout";
-import type { ChatMessage, HomeLayoutProps } from "@/components/layoutTypes";
+import type {
+  ChatMessage,
+  HomeLayoutProps,
+  ReportReason,
+} from "@/components/layoutTypes";
 import { io, type Socket } from "socket.io-client";
 
 const SOCKET_URL =
@@ -25,6 +29,14 @@ const ICE_SERVERS: RTCIceServer[] = [
         },
       ]
     : []),
+];
+
+const REPORT_REASONS: ReportReason[] = [
+  "Nudity / Sexual content",
+  "Harassment",
+  "Hate speech",
+  "Spam / Advertising",
+  "Other",
 ];
 
 export default function Home() {
@@ -49,8 +61,13 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [reportFeedback, setReportFeedback] = useState("");
   const commentRef = useRef(comment);
   const countryRef = useRef(country);
+  const reportFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   useEffect(() => {
     commentRef.current = comment;
@@ -565,7 +582,37 @@ export default function Home() {
   }, [stopSearching]);
 
   const handleReportAction = useCallback(() => {
-    console.log("REPORT clicked");
+    setIsReportOpen(true);
+  }, []);
+
+  const handleReportClose = useCallback(() => {
+    setIsReportOpen(false);
+  }, []);
+
+  const handleReportReason = useCallback((reason: ReportReason) => {
+    socketRef.current?.emit("report-user", {
+      reason,
+    });
+
+    setIsReportOpen(false);
+    setReportFeedback("Report submitted");
+
+    if (reportFeedbackTimerRef.current) {
+      clearTimeout(reportFeedbackTimerRef.current);
+    }
+
+    reportFeedbackTimerRef.current = setTimeout(() => {
+      setReportFeedback("");
+      reportFeedbackTimerRef.current = null;
+    }, 2500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (reportFeedbackTimerRef.current) {
+        clearTimeout(reportFeedbackTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -584,6 +631,9 @@ export default function Home() {
     strangerComment,
     message,
     messages,
+    reportReasons: REPORT_REASONS,
+    isReportOpen,
+    reportFeedback,
     isSearching,
     isConnected,
     setCountry,
@@ -593,6 +643,8 @@ export default function Home() {
     handleStartAction,
     handleEndAction,
     handleReportAction,
+    handleReportReason,
+    handleReportClose,
   };
 
   if (isDesktop === null) {
