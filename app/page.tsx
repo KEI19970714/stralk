@@ -9,6 +9,24 @@ import { io, type Socket } from "socket.io-client";
 const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
 
+const TURN_URL = process.env.NEXT_PUBLIC_TURN_URL?.trim();
+const TURN_USERNAME = process.env.NEXT_PUBLIC_TURN_USERNAME?.trim();
+const TURN_CREDENTIAL = process.env.NEXT_PUBLIC_TURN_CREDENTIAL?.trim();
+
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: "stun:stun.l.google.com:19302" },
+  ...(TURN_URL
+    ? [
+        {
+          urls: TURN_URL,
+          ...(TURN_USERNAME && TURN_CREDENTIAL
+            ? { username: TURN_USERNAME, credential: TURN_CREDENTIAL }
+            : {}),
+        },
+      ]
+    : []),
+];
+
 export default function Home() {
   const myVideoRef = useRef<HTMLVideoElement>(null);
   const strangerVideoRef = useRef<HTMLVideoElement>(null);
@@ -197,7 +215,7 @@ export default function Home() {
       }
 
       const pc = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        iceServers: ICE_SERVERS,
       });
 
       peerConnection.current = pc;
