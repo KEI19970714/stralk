@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 
 const certPath = path.join(__dirname, "certificates", "cert.pem");
 const keyPath = path.join(__dirname, "certificates", "key.pem");
+const banDataPath = path.join(__dirname, "ban-data.json");
 const hasHttpsCertificates = fs.existsSync(certPath) && fs.existsSync(keyPath);
 
 const httpServer = hasHttpsCertificates
@@ -59,6 +60,61 @@ function getSocket(id) {
   return io.sockets.sockets.get(id);
 }
 
+function saveBans() {
+  const now = Date.now();
+  const activeBans = {};
+
+  for (const [socketId, bannedUntil] of bans) {
+    if (bannedUntil > now) {
+      activeBans[socketId] = bannedUntil;
+    } else {
+      bans.delete(socketId);
+    }
+  }
+
+  try {
+    fs.writeFileSync(banDataPath, JSON.stringify(activeBans, null, 2));
+  } catch (error) {
+    console.error("Failed to save ban data:", error);
+  }
+}
+
+function loadBans() {
+  if (!fs.existsSync(banDataPath)) {
+    return;
+  }
+
+  try {
+    const rawBanData = fs.readFileSync(banDataPath, "utf8");
+    const parsedBanData = JSON.parse(rawBanData);
+
+    if (!parsedBanData || typeof parsedBanData !== "object") {
+      return;
+    }
+
+    const now = Date.now();
+    let removedExpiredBan = false;
+
+    for (const [socketId, bannedUntil] of Object.entries(parsedBanData)) {
+      if (typeof bannedUntil !== "number" || !Number.isFinite(bannedUntil)) {
+        continue;
+      }
+
+      if (bannedUntil > now) {
+        bans.set(socketId, bannedUntil);
+      } else {
+        removedExpiredBan = true;
+      }
+    }
+
+    if (removedExpiredBan) {
+      saveBans();
+    }
+  } catch (error) {
+    console.error("Failed to load ban data:", error);
+  }
+}
+
 function getActiveBanUntil(socketId) {
   const bannedUntil = bans.get(socketId);
 
@@ -68,6 +124,7 @@ function getActiveBanUntil(socketId) {
 
   if (bannedUntil <= Date.now()) {
     bans.delete(socketId);
+    saveBans();
     return null;
   }
 
@@ -287,6 +344,7 @@ function banSocket(socket) {
   const bannedUntil = Date.now() + BAN_DURATION_MS;
 
   bans.set(socket.id, bannedUntil);
+  saveBans();
   removeFromQueue(socket);
   cleanupRoom(socket);
   notifyBan(socket, bannedUntil);
@@ -313,6 +371,8 @@ function recordReport(reportedSocketId, reporterSocketId) {
 
   return targetReports.size;
 }
+
+loadBans();
 
 io.on("connection", (socket) => {
   socket.data.roomId = null;
