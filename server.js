@@ -8,7 +8,41 @@ const { Server } = require("socket.io");
 const certPath = path.join(__dirname, "certificates", "cert.pem");
 const keyPath = path.join(__dirname, "certificates", "key.pem");
 const banDataPath = path.join(__dirname, "ban-data.json");
+const envLocalPath = path.join(__dirname, ".env.local");
 const hasHttpsCertificates = fs.existsSync(certPath) && fs.existsSync(keyPath);
+
+function loadEnvLocal() {
+  if (!fs.existsSync(envLocalPath)) {
+    return;
+  }
+
+  try {
+    for (const line of fs.readFileSync(envLocalPath, "utf8").split(/\r?\n/)) {
+      const trimmedLine = line.trim();
+
+      if (!trimmedLine || trimmedLine.startsWith("#")) {
+        continue;
+      }
+
+      const separatorIndex = trimmedLine.indexOf("=");
+
+      if (separatorIndex === -1) {
+        continue;
+      }
+
+      const key = trimmedLine.slice(0, separatorIndex).trim();
+      const value = trimmedLine.slice(separatorIndex + 1).trim();
+
+      if (key && process.env[key] === undefined) {
+        process.env[key] = value;
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load .env.local:", error);
+  }
+}
+
+loadEnvLocal();
 
 const httpServer = hasHttpsCertificates
   ? https.createServer({
@@ -30,6 +64,8 @@ const bans = new Map();
 const REPORT_WINDOW_MS = 10 * 60 * 1000;
 const REPORT_THRESHOLD = 3;
 const BAN_DURATION_MS = 10 * 60 * 1000;
+const IPINFO_TOKEN = process.env.IPINFO_TOKEN?.trim();
+const DEFAULT_COUNTRY = "GLOBAL";
 
 function normalizeCriteria(payload = {}) {
   return {
@@ -58,6 +94,62 @@ function getQueue(key) {
 
 function getSocket(id) {
   return io.sockets.sockets.get(id);
+}
+
+function getClientIp(socket) {
+  const forwardedFor = socket.handshake.headers["x-forwarded-for"];
+  const rawIp = Array.isArray(forwardedFor)
+    ? forwardedFor[0]
+    : forwardedFor?.split(",")[0];
+  const ip = rawIp?.trim() || socket.handshake.address || "";
+
+  return ip.replace(/^::ffff:/, "");
+}
+
+async function fetchMyCountry(socket) {
+  if (!IPINFO_TOKEN) {
+    return DEFAULT_COUNTRY;
+  }
+
+  const clientIp = getClientIp(socket);
+
+  if (!clientIp) {
+    return DEFAULT_COUNTRY;
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.ipinfo.io/lite/${encodeURIComponent(
+        clientIp,
+      )}?token=${encodeURIComponent(IPINFO_TOKEN)}`,
+    );
+
+    if (!response.ok) {
+      return DEFAULT_COUNTRY;
+    }
+
+    const data = await response.json();
+    const countryCode =
+      typeof data?.country_code === "string"
+        ? data.country_code.trim().toUpperCase()
+        : "";
+
+    return countryCode || DEFAULT_COUNTRY;
+  } catch (error) {
+    console.error("Country detection failed:", error);
+    return DEFAULT_COUNTRY;
+  }
+}
+
+async function assignMyCountry(socket) {
+  console.log(`Client IP: ${getClientIp(socket) || "unknown"}`);
+
+  const myCountry = await fetchMyCountry(socket);
+
+  console.log(`Country detected: ${myCountry}`);
+
+  socket.data.myCountry = myCountry;
+  socket.emit("my-country", { myCountry });
 }
 
 function saveBans() {
@@ -379,6 +471,9 @@ io.on("connection", (socket) => {
   socket.data.queueKey = null;
   socket.data.searching = false;
   socket.data.criteria = normalizeCriteria();
+  socket.data.myCountry = DEFAULT_COUNTRY;
+  socket.emit("my-country", { myCountry: socket.data.myCountry });
+  void assignMyCountry(socket);
 
   console.log("User connected:", socket.id);
 

@@ -55,6 +55,7 @@ export default function Home() {
   const wantsSearchRef = useRef(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
+  const myCountryRef = useRef("GLOBAL");
   const [status, setStatus] = useState("Idle");
   const [country, setCountry] = useState("Global");
   const [comment, setComment] = useState("");
@@ -408,6 +409,10 @@ export default function Home() {
       console.log("Connected to server:", socket.id);
     };
 
+    const handleMyCountry = ({ myCountry }: { myCountry?: string } = {}) => {
+      myCountryRef.current = myCountry?.trim().toUpperCase() || "GLOBAL";
+    };
+
     const handleMatched = async ({
       initiator,
       partnerComment,
@@ -552,6 +557,7 @@ export default function Home() {
     };
 
     socket.on("connect", handleConnect);
+    socket.on("my-country", handleMyCountry);
     socket.on("matched", handleMatched);
     socket.on("partner disconnected", handlePartnerDisconnected);
     socket.on("chat message", handleChatMessage);
@@ -563,6 +569,7 @@ export default function Home() {
 
     return () => {
       socket.off("connect", handleConnect);
+      socket.off("my-country", handleMyCountry);
       socket.off("matched", handleMatched);
       socket.off("partner disconnected", handlePartnerDisconnected);
       socket.off("chat message", handleChatMessage);
