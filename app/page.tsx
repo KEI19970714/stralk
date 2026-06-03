@@ -5,6 +5,7 @@ import { DesktopLayout } from "@/components/DesktopLayout";
 import { MobileLayout } from "@/components/MobileLayout";
 import type {
   ChatMessage,
+  CountryOption,
   HomeLayoutProps,
   ReportReason,
 } from "@/components/layoutTypes";
@@ -38,6 +39,31 @@ const REPORT_REASONS: ReportReason[] = [
   "Spam / Advertising",
   "Other",
 ];
+const COUNTRY_OPTIONS: CountryOption[] = [
+  "Global",
+  "Japan",
+  "United States",
+  "South Korea",
+  "China",
+  "Taiwan",
+  "Hong Kong",
+  "Philippines",
+  "Thailand",
+  "Vietnam",
+  "Indonesia",
+  "Malaysia",
+  "Singapore",
+  "India",
+  "United Kingdom",
+  "Germany",
+  "France",
+  "Spain",
+  "Italy",
+  "Brazil",
+  "Mexico",
+  "Saudi Arabia",
+  "Turkey",
+];
 const BAN_NOTICE_TEXT = "You are temporarily banned. Please try again later.";
 
 export default function Home() {
@@ -64,6 +90,7 @@ export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isCountryOpen, setIsCountryOpen] = useState(false);
   const [reportFeedback, setReportFeedback] = useState("");
   const [banNotice, setBanNotice] = useState("");
   const commentRef = useRef(comment);
@@ -641,10 +668,21 @@ export default function Home() {
 
   const handleReportAction = useCallback(() => {
     setIsReportOpen(true);
+    setIsCountryOpen(false);
   }, []);
 
   const handleReportClose = useCallback(() => {
     setIsReportOpen(false);
+  }, []);
+
+  const handleCountryAction = useCallback(() => {
+    setIsCountryOpen((current) => !current);
+    setIsReportOpen(false);
+  }, []);
+
+  const handleCountrySelect = useCallback((selectedCountry: CountryOption) => {
+    setCountry(selectedCountry);
+    setIsCountryOpen(false);
   }, []);
 
   const handleReportReason = useCallback((reason: ReportReason) => {
@@ -689,8 +727,10 @@ export default function Home() {
     strangerComment,
     message,
     messages,
+    countryOptions: COUNTRY_OPTIONS,
     reportReasons: REPORT_REASONS,
     isReportOpen,
+    isCountryOpen,
     reportFeedback,
     banNotice,
     isSearching,
@@ -701,6 +741,8 @@ export default function Home() {
     sendMessage,
     handleStartAction,
     handleEndAction,
+    handleCountryAction,
+    handleCountrySelect,
     handleReportAction,
     handleReportReason,
     handleReportClose,

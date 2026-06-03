@@ -12,8 +12,10 @@ export function DesktopLayout({
   strangerComment,
   message,
   messages,
+  countryOptions,
   reportReasons,
   isReportOpen,
+  isCountryOpen,
   reportFeedback,
   banNotice,
   isSearching,
@@ -24,6 +26,8 @@ export function DesktopLayout({
   sendMessage,
   handleStartAction,
   handleEndAction,
+  handleCountryAction,
+  handleCountrySelect,
   handleReportAction,
   handleReportReason,
   handleReportClose,
@@ -124,24 +128,35 @@ export function DesktopLayout({
               <span>END</span>
             </button>
 
-            <label className="pressable action-card relative flex h-16 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl border border-blue-500 bg-blue-500 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-blue-400 active:bg-blue-600 lg:h-18">
-              <span className="text-2xl leading-none">◎</span>
-              <span>COUNTRY</span>
-              <select
-                value={country}
-                onChange={(e) => {
-                  setCountry(e.target.value);
-                }}
-                className="absolute inset-0 cursor-pointer opacity-0"
+            <div className="relative">
+              {isCountryOpen && (
+                <div className="absolute bottom-[72px] left-0 z-[70] max-h-72 w-56 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 text-neutral-950 shadow-2xl">
+                  {countryOptions.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => handleCountrySelect(option)}
+                      className={`w-full rounded-xl px-3 py-2 text-left text-xs font-black transition ${
+                        country === option
+                          ? "bg-blue-500 text-white"
+                          : "text-neutral-950 hover:bg-blue-50 hover:text-neutral-950"
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleCountryAction}
+                className="pressable action-card flex h-16 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-blue-500 bg-blue-500 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-blue-400 active:bg-blue-600 lg:h-18"
                 aria-label="Country"
               >
-                <option>Global</option>
-                <option>Japan</option>
-                <option>USA</option>
-                <option>Korea</option>
-                <option>Philippines</option>
-              </select>
-            </label>
+                <span className="max-w-[90%] truncate">{country || "Global"}</span>
+              </button>
+            </div>
 
             <button
               type="button"

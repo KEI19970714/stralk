@@ -9,6 +9,31 @@ export type ReportReason =
   | "Spam / Advertising"
   | "Other";
 
+export type CountryOption =
+  | "Global"
+  | "Japan"
+  | "United States"
+  | "South Korea"
+  | "China"
+  | "Taiwan"
+  | "Hong Kong"
+  | "Philippines"
+  | "Thailand"
+  | "Vietnam"
+  | "Indonesia"
+  | "Malaysia"
+  | "Singapore"
+  | "India"
+  | "United Kingdom"
+  | "Germany"
+  | "France"
+  | "Spain"
+  | "Italy"
+  | "Brazil"
+  | "Mexico"
+  | "Saudi Arabia"
+  | "Turkey";
+
 export type HomeLayoutProps = {
   myVideoRef: RefObject<HTMLVideoElement | null>;
   strangerVideoRef: RefObject<HTMLVideoElement | null>;
@@ -19,8 +44,10 @@ export type HomeLayoutProps = {
   strangerComment: string;
   message: string;
   messages: ChatMessage[];
+  countryOptions: CountryOption[];
   reportReasons: ReportReason[];
   isReportOpen: boolean;
+  isCountryOpen: boolean;
   reportFeedback: string;
   banNotice: string;
   isSearching: boolean;
@@ -31,6 +58,8 @@ export type HomeLayoutProps = {
   sendMessage: () => void;
   handleStartAction: () => void;
   handleEndAction: () => void;
+  handleCountryAction: () => void;
+  handleCountrySelect: (country: CountryOption) => void;
   handleReportAction: () => void;
   handleReportReason: (reason: ReportReason) => void;
   handleReportClose: () => void;
