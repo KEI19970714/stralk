@@ -24,7 +24,7 @@ const io = new Server(httpServer, {
 
 const queues = new Map();
 const queuedSocketIds = new Set();
-const reports = new Map();
+const reportsByTarget = new Map();
 const bans = new Map();
 const REPORT_WINDOW_MS = 10 * 60 * 1000;
 const REPORT_THRESHOLD = 3;
@@ -298,16 +298,20 @@ function banSocket(socket) {
   );
 }
 
-function recordReport(reportedSocketId) {
+function recordReport(reportedSocketId, reporterSocketId) {
   const now = Date.now();
-  const recentReports = (reports.get(reportedSocketId) || []).filter(
-    (reportedAt) => now - reportedAt <= REPORT_WINDOW_MS,
-  );
+  const targetReports = reportsByTarget.get(reportedSocketId) || new Map();
 
-  recentReports.push(now);
-  reports.set(reportedSocketId, recentReports);
+  for (const [reporterId, reportedAt] of targetReports) {
+    if (now - reportedAt > REPORT_WINDOW_MS) {
+      targetReports.delete(reporterId);
+    }
+  }
 
-  return recentReports.length;
+  targetReports.set(reporterSocketId, now);
+  reportsByTarget.set(reportedSocketId, targetReports);
+
+  return targetReports.size;
 }
 
 io.on("connection", (socket) => {
@@ -391,7 +395,7 @@ io.on("connection", (socket) => {
       ? [...room].find((socketId) => socketId !== socket.id)
       : null;
 
-    if (!reportedSocketId) {
+    if (!reportedSocketId || reportedSocketId === socket.id) {
       return;
     }
 
@@ -405,7 +409,7 @@ io.on("connection", (socket) => {
       ].join("\n"),
     );
 
-    const reportCount = recordReport(reportedSocketId);
+    const reportCount = recordReport(reportedSocketId, socket.id);
     const reportedSocket = getSocket(reportedSocketId);
 
     if (
@@ -414,6 +418,7 @@ io.on("connection", (socket) => {
       !getActiveBanUntil(reportedSocket.id)
     ) {
       banSocket(reportedSocket);
+      reportsByTarget.delete(reportedSocketId);
     }
   });
 
