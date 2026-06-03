@@ -124,7 +124,8 @@ export default function Home() {
 
   const getSearchPayload = useCallback(() => {
     return {
-      country: countryRef.current,
+      myCountry: myCountryRef.current,
+      targetCountry: countryRef.current,
       comment: commentRef.current,
     };
   }, []);

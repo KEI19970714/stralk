@@ -66,13 +66,62 @@ const REPORT_THRESHOLD = 3;
 const BAN_DURATION_MS = 10 * 60 * 1000;
 const IPINFO_TOKEN = process.env.IPINFO_TOKEN?.trim();
 const DEFAULT_COUNTRY = "GLOBAL";
+const GLOBAL_COUNTRY = "Global";
+const COUNTRY_CODE_NAMES = {
+  BR: "Brazil",
+  CN: "China",
+  DE: "Germany",
+  ES: "Spain",
+  FR: "France",
+  GB: "United Kingdom",
+  HK: "Hong Kong",
+  ID: "Indonesia",
+  IN: "India",
+  IT: "Italy",
+  JP: "Japan",
+  KR: "South Korea",
+  MX: "Mexico",
+  MY: "Malaysia",
+  PH: "Philippines",
+  SA: "Saudi Arabia",
+  SG: "Singapore",
+  TH: "Thailand",
+  TR: "Turkey",
+  TW: "Taiwan",
+  US: "United States",
+  VN: "Vietnam",
+};
+
+function normalizeCountry(value, fallback = GLOBAL_COUNTRY) {
+  if (typeof value !== "string" || !value.trim()) {
+    return fallback;
+  }
+
+  const country = value.trim();
+  const upperCountry = country.toUpperCase();
+
+  if (upperCountry === DEFAULT_COUNTRY || upperCountry === "GLOBAL") {
+    return GLOBAL_COUNTRY;
+  }
+
+  return COUNTRY_CODE_NAMES[upperCountry] || country;
+}
 
 function normalizeCriteria(payload = {}) {
+  const targetCountry =
+    typeof payload.targetCountry === "string"
+      ? normalizeCountry(payload.targetCountry)
+      : typeof payload.country === "string" && payload.country.trim()
+        ? normalizeCountry(payload.country)
+        : GLOBAL_COUNTRY;
+
   return {
-    country:
-      typeof payload.country === "string" && payload.country.trim()
-        ? payload.country.trim()
-        : "Global",
+    myCountry:
+      typeof payload.myCountry === "string" && payload.myCountry.trim()
+        ? normalizeCountry(payload.myCountry)
+        : GLOBAL_COUNTRY,
+    targetCountry,
+    country: targetCountry,
     comment:
       typeof payload.comment === "string" && payload.comment.trim()
         ? payload.comment.trim()
@@ -81,7 +130,7 @@ function normalizeCriteria(payload = {}) {
 }
 
 function getQueueKey(criteria) {
-  return `country:${criteria.country}`;
+  return `targetCountry:${criteria.targetCountry}`;
 }
 
 function getQueue(key) {
@@ -327,48 +376,100 @@ function matchSockets(socketA, socketB) {
   });
 
   console.log("Matched:", roomId);
+  console.log("Matched criteria:", {
+    first: {
+      myCountry: socketA.data.criteria?.myCountry,
+      targetCountry: socketA.data.criteria?.targetCountry,
+    },
+    second: {
+      myCountry: socketB.data.criteria?.myCountry,
+      targetCountry: socketB.data.criteria?.targetCountry,
+    },
+  });
 
   return true;
 }
 
-function tryMatch(key) {
-  const queue = compactQueue(key);
+function isGlobalCountry(country) {
+  return normalizeCountry(country) === GLOBAL_COUNTRY;
+}
 
-  while (queue.length > 1) {
-    const first = queue.shift();
-    queuedSocketIds.delete(first.socketId);
+function getQueuedEntries() {
+  const entries = [];
 
-    const secondIndex = queue.findIndex(
-      (entry) => entry.socketId !== first.socketId,
-    );
-
-    if (secondIndex === -1) {
-      queue.unshift(first);
-      queuedSocketIds.add(first.socketId);
-      break;
-    }
-
-    const [second] = queue.splice(secondIndex, 1);
-    queuedSocketIds.delete(second.socketId);
-
-    const firstSocket = getSocket(first.socketId);
-    const secondSocket = getSocket(second.socketId);
-
-    if (!matchSockets(firstSocket, secondSocket)) {
-      if (firstSocket && firstSocket.connected && !firstSocket.data.roomId) {
-        enqueue(firstSocket, first.criteria);
-      }
-
-      if (secondSocket && secondSocket.connected && !secondSocket.data.roomId) {
-        enqueue(secondSocket, second.criteria);
-      }
-    }
+  for (const key of [...queues.keys()]) {
+    entries.push(...compactQueue(key));
   }
 
-  if (queue.length > 0) {
-    queues.set(key, queue);
-  } else {
-    queues.delete(key);
+  return entries;
+}
+
+function findPartnerEntry(first, entries) {
+  const preferred = [];
+  const fallback = [];
+  const firstTargetCountry = normalizeCountry(first.criteria?.targetCountry);
+
+  for (const entry of entries) {
+    if (entry.socketId === first.socketId || !isMatchable(entry)) {
+      continue;
+    }
+
+    if (
+      isGlobalCountry(firstTargetCountry) ||
+      normalizeCountry(entry.criteria?.myCountry) === firstTargetCountry
+    ) {
+      preferred.push(entry);
+      continue;
+    }
+
+    fallback.push(entry);
+  }
+
+  return preferred[0] || fallback[0] || null;
+}
+
+function tryMatch() {
+  let matched = true;
+
+  while (matched) {
+    matched = false;
+    const entries = getQueuedEntries();
+
+    for (const first of entries) {
+      if (!isMatchable(first)) {
+        continue;
+      }
+
+      const second = findPartnerEntry(first, entries);
+
+      if (!second) {
+        continue;
+      }
+
+      const firstSocket = getSocket(first.socketId);
+      const secondSocket = getSocket(second.socketId);
+
+      if (firstSocket) {
+        removeFromQueue(firstSocket);
+      }
+
+      if (secondSocket) {
+        removeFromQueue(secondSocket);
+      }
+
+      if (!matchSockets(firstSocket, secondSocket)) {
+        if (firstSocket && firstSocket.connected && !firstSocket.data.roomId) {
+          enqueue(firstSocket, first.criteria);
+        }
+
+        if (secondSocket && secondSocket.connected && !secondSocket.data.roomId) {
+          enqueue(secondSocket, second.criteria);
+        }
+      }
+
+      matched = true;
+      break;
+    }
   }
 }
 
@@ -396,9 +497,12 @@ function enqueue(socket, criteria = normalizeCriteria()) {
     queuedAt: Date.now(),
   });
 
-  console.log("Waiting for partner:", socket.id, key);
+  console.log("Waiting for partner:", socket.id, key, {
+    myCountry: criteria.myCountry,
+    targetCountry: criteria.targetCountry,
+  });
 
-  tryMatch(key);
+  tryMatch();
 }
 
 function cleanupRoom(socket, { notifyPartner = true } = {}) {
@@ -485,6 +589,7 @@ io.on("connection", (socket) => {
     const criteria = normalizeCriteria(payload);
 
     socket.data.criteria = criteria;
+    console.log("Search criteria:", criteria);
     enqueue(socket, criteria);
   });
 
@@ -501,6 +606,7 @@ io.on("connection", (socket) => {
 
     removeFromQueue(socket);
     cleanupRoom(socket);
+    console.log("Next criteria:", criteria);
     enqueue(socket, criteria);
   });
 
