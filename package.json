@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"node next-server.js\" \"npm run dev:socket\"",
+    "dev": "npm run dev:https",
     "dev:next": "next dev",
     "dev:socket": "node server.js",
-    "dev:https": "node scripts/generate-cert.mjs && concurrently \"next dev --experimental-https --experimental-https-key certificates/key.pem --experimental-https-cert certificates/cert.pem\" \"npm run dev:socket\"",
+    "dev:https": "node scripts/generate-cert.mjs && concurrently \"node next-server.js\" \"npm run dev:socket\"",
     "build": "next build",
-    "start": "next start",
+    "start": "concurrently \"node next-server.js --production\" \"npm run dev:socket\"",
     "lint": "eslint"
   },
   "dependencies": {

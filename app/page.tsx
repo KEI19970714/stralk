@@ -11,8 +11,15 @@ import type {
 } from "@/components/layoutTypes";
 import { io, type Socket } from "socket.io-client";
 
-const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
+const CONFIGURED_SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL?.trim();
+
+function getSocketUrl() {
+  if (CONFIGURED_SOCKET_URL) {
+    return CONFIGURED_SOCKET_URL;
+  }
+
+  return `${window.location.protocol}//${window.location.hostname}:3001`;
+}
 
 const TURN_URL = process.env.NEXT_PUBLIC_TURN_URL?.trim();
 const TURN_USERNAME = process.env.NEXT_PUBLIC_TURN_USERNAME?.trim();
@@ -166,6 +173,25 @@ export default function Home() {
       }
 
       const requestId = localStreamRequestRef.current;
+      const hasMediaDevices = Boolean(navigator.mediaDevices);
+      const hasGetUserMedia =
+        typeof navigator.mediaDevices?.getUserMedia === "function";
+
+      console.log("Camera environment:", {
+        isSecureContext: window.isSecureContext,
+        hasMediaDevices,
+        hasGetUserMedia,
+        protocol: window.location.protocol,
+        hostname: window.location.hostname,
+      });
+
+      if (!window.isSecureContext) {
+        throw new Error("Camera requires HTTPS or localhost.");
+      }
+
+      if (!hasMediaDevices || !hasGetUserMedia) {
+        throw new Error("Camera/microphone is not available in this browser.");
+      }
 
       localStreamPromiseRef.current = navigator.mediaDevices
         .getUserMedia({
@@ -436,7 +462,9 @@ export default function Home() {
   }, [cleanupConnection]);
 
   useEffect(() => {
-    const socket = io(SOCKET_URL);
+    const socketUrl = getSocketUrl();
+    console.log("Connecting to Socket.IO:", socketUrl);
+    const socket = io(socketUrl);
     socketRef.current = socket;
 
     const handleConnect = () => {

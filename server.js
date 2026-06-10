@@ -91,6 +91,7 @@ const COUNTRY_CODE_NAMES = {
   US: "United States",
   VN: "Vietnam",
 };
+const port = Number.parseInt(process.env.SOCKET_PORT || "3001", 10);
 
 function normalizeCountry(value, fallback = GLOBAL_COUNTRY) {
   if (typeof value !== "string" || !value.trim()) {
@@ -715,8 +716,8 @@ io.on("connection", (socket) => {
   });
 });
 
-httpServer.listen(3001, () => {
+httpServer.listen(port, "0.0.0.0", () => {
   console.log(
-    `Socket.IO server running on ${hasHttpsCertificates ? "https" : "http"} port 3001`,
+    `Socket.IO server running on ${hasHttpsCertificates ? "https" : "http"}://0.0.0.0:${port}`,
   );
 });
