@@ -1,5 +1,6 @@
 "use client";
 
+import { getCountryFlag, getCountryName } from "./countryFlags";
 import type { HomeLayoutProps } from "./layoutTypes";
 
 export function DesktopLayout({
@@ -136,13 +137,15 @@ export function DesktopLayout({
                       key={option}
                       type="button"
                       onClick={() => handleCountrySelect(option)}
-                      className={`w-full rounded-xl px-3 py-2 text-left text-xs font-black transition ${
+                      className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-black transition ${
                         country === option
                           ? "bg-blue-500 text-white"
                           : "text-neutral-950 hover:bg-blue-50 hover:text-neutral-950"
                       }`}
                     >
-                      {option}
+                      <span>
+                        {getCountryFlag(option)} {getCountryName(option)}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -154,7 +157,15 @@ export function DesktopLayout({
                 className="pressable action-card flex h-16 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-blue-500 bg-blue-500 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-blue-400 active:bg-blue-600 lg:h-18"
                 aria-label="Country"
               >
-                <span className="max-w-[90%] truncate">{country || "Global"}</span>
+                {country.trim().toUpperCase() === "GLOBAL" ? (
+                  <span className="flex items-center gap-1.5">
+                    {getCountryFlag("Global")} Global
+                  </span>
+                ) : (
+                  <span className="max-w-[90%] truncate">
+                    {getCountryFlag(country)} {getCountryName(country)}
+                  </span>
+                )}
               </button>
             </div>
 

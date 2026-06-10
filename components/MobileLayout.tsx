@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getCountryFlag } from "./countryFlags";
 import type { HomeLayoutProps } from "./layoutTypes";
 
 export function MobileLayout({
@@ -227,11 +228,14 @@ export function MobileLayout({
                     key={option}
                     type="button"
                     onClick={() => handleCountrySelect(option)}
-                    className={`w-full rounded-lg px-3 py-2 text-left text-xs font-black ${
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-black ${
                       country === option ? "bg-blue-500 text-white" : ""
                     }`}
                   >
-                    {option}
+                    <span className="text-base leading-none" aria-hidden="true">
+                      {getCountryFlag(option)}
+                    </span>
+                    <span>{option}</span>
                   </button>
                 ))}
               </div>
@@ -243,7 +247,13 @@ export function MobileLayout({
               onClick={handleCountryAction}
               className="pressable action-card pointer-events-auto flex h-14 w-full touch-manipulation flex-col items-center justify-center gap-0.5 rounded-xl border border-blue-500 bg-blue-500 text-[10px] font-black text-white shadow-lg"
             >
-              <span className="max-w-[90%] truncate">{country || "Global"}</span>
+              {country === "Global" ? (
+                <span>Global</span>
+              ) : (
+                <span className="text-xl leading-none" aria-hidden="true">
+                  {getCountryFlag(country)}
+                </span>
+              )}
             </button>
           </div>
 
