@@ -85,6 +85,7 @@ export default function Home() {
   const [status, setStatus] = useState("Idle");
   const [country, setCountry] = useState("Global");
   const [comment, setComment] = useState("");
+  const [strangerCountry, setStrangerCountry] = useState("Global");
   const [strangerComment, setStrangerComment] = useState("");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -242,6 +243,7 @@ export default function Home() {
       wantsSearchRef.current = false;
       setStatus(BAN_NOTICE_TEXT);
       setMessages([]);
+      setStrangerCountry("Global");
       setStrangerComment("");
       setIsReportOpen(false);
       setBanNotice(BAN_NOTICE_TEXT);
@@ -323,6 +325,7 @@ export default function Home() {
           cleanupConnection();
           setStatus("Searching...");
           setMessages([]);
+          setStrangerCountry("Global");
           setStrangerComment("");
 
           if (wantsSearchRef.current) {
@@ -357,6 +360,7 @@ export default function Home() {
 
     setStatus("Searching...");
     setMessages([]);
+    setStrangerCountry("Global");
     setStrangerComment("");
     wantsSearchRef.current = true;
     cleanupConnection();
@@ -395,6 +399,7 @@ export default function Home() {
 
     setStatus("Searching...");
     setMessages([]);
+    setStrangerCountry("Global");
     setStrangerComment("");
     wantsSearchRef.current = true;
     cleanupConnection();
@@ -424,6 +429,7 @@ export default function Home() {
     wantsSearchRef.current = false;
     setStatus("Idle");
     setMessages([]);
+    setStrangerCountry("Global");
     setStrangerComment("");
     cleanupConnection({ stopLocalStream: true });
     socketRef.current?.emit("stop searching");
@@ -443,9 +449,11 @@ export default function Home() {
 
     const handleMatched = async ({
       initiator,
+      partnerCountry,
       partnerComment,
     }: {
       initiator: boolean;
+      partnerCountry?: string;
       partnerComment?: string;
     }) => {
       if (!wantsSearchRef.current) {
@@ -488,6 +496,7 @@ export default function Home() {
         socket.emit("offer", { offer });
       }
 
+      setStrangerCountry(partnerCountry?.trim() || "Global");
       setStrangerComment(partnerComment?.trim() ?? "");
     };
 
@@ -501,6 +510,7 @@ export default function Home() {
 
       setStatus("Searching...");
       setMessages([]);
+      setStrangerCountry("Global");
       setStrangerComment("");
       socket.emit("start searching", getSearchPayload());
     };
@@ -725,6 +735,7 @@ export default function Home() {
     status,
     country,
     comment,
+    strangerCountry,
     strangerComment,
     message,
     messages,

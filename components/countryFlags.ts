@@ -57,9 +57,13 @@ const COUNTRY_FLAG_BY_CODE: Record<string, string> = {
   TR: "\u{1F1F9}\u{1F1F7}",
 };
 
-function getCountryCode(country: string): string {
+export function getCountryCode(country: string): string {
   const normalized = country.trim();
   const upper = normalized.toUpperCase();
+
+  if (upper === "GLOBAL") {
+    return "GL";
+  }
 
   // Already a 2-letter country code (e.g. "JP", "US")
   if (COUNTRY_FLAG_BY_CODE[upper]) {
@@ -76,7 +80,7 @@ export function getFlagEmoji(countryCode: string): string {
 }
 
 export function getCountryFlag(country: string): string {
-  if (country.trim().toUpperCase() === "GLOBAL") {
+  if (getCountryCode(country) === "GL") {
     return "\u{1F310}";
   }
 

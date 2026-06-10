@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getCountryFlag } from "./countryFlags";
+import { getCountryCode, getCountryFlag } from "./countryFlags";
 import type { HomeLayoutProps } from "./layoutTypes";
 
 export function MobileLayout({
@@ -11,6 +11,7 @@ export function MobileLayout({
   status,
   country,
   comment,
+  strangerCountry,
   strangerComment,
   message,
   messages,
@@ -118,6 +119,7 @@ export function MobileLayout({
           )}
 
           <div className="pointer-events-none absolute bottom-5 left-5 rounded-2xl border border-white/10 bg-black/35 px-4 py-2 text-sm font-bold text-white shadow-lg backdrop-blur-md">
+            {getCountryCode(strangerCountry)} |{" "}
             {strangerComment || "Stranger"}
           </div>
         </div>

@@ -41,6 +41,7 @@ export type HomeLayoutProps = {
   status: string;
   country: string;
   comment: string;
+  strangerCountry: string;
   strangerComment: string;
   message: string;
   messages: ChatMessage[];

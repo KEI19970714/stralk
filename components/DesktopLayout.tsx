@@ -1,6 +1,10 @@
 "use client";
 
-import { getCountryFlag, getCountryName } from "./countryFlags";
+import {
+  getCountryCode,
+  getCountryFlag,
+  getCountryName,
+} from "./countryFlags";
 import type { HomeLayoutProps } from "./layoutTypes";
 
 export function DesktopLayout({
@@ -10,6 +14,7 @@ export function DesktopLayout({
   status,
   country,
   comment,
+  strangerCountry,
   strangerComment,
   message,
   messages,
@@ -99,6 +104,7 @@ export function DesktopLayout({
             )}
 
             <div className="absolute bottom-5 left-5 flex rounded-2xl border border-white/10 bg-black/35 px-4 py-2 text-sm font-bold text-white shadow-lg backdrop-blur-md">
+              {getCountryCode(strangerCountry)} |{" "}
               {strangerComment || "Stranger"}
             </div>
           </div>

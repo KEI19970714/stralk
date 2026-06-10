@@ -368,10 +368,12 @@ function matchSockets(socketA, socketB) {
 
   socketA.emit("matched", {
     initiator: true,
+    partnerCountry: socketB.data.criteria?.myCountry ?? GLOBAL_COUNTRY,
     partnerComment: socketB.data.criteria?.comment ?? "",
   });
   socketB.emit("matched", {
     initiator: false,
+    partnerCountry: socketA.data.criteria?.myCountry ?? GLOBAL_COUNTRY,
     partnerComment: socketA.data.criteria?.comment ?? "",
   });
 
