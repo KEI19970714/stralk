@@ -16,31 +16,27 @@ npm run dev
 
 This runs:
 
-- Next.js on [http://localhost:3000](http://localhost:3000)
-- Socket.IO signaling server on `http://localhost:3001`
+- Next.js and Socket.IO on `https://localhost:3000`
+- Socket.IO endpoint at `https://localhost:3000/socket.io/`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser.
+Open `https://localhost:3000` with your browser.
+
+`npm run dev:socket` remains available when the Socket.IO server needs to be
+started separately on port 3001, but it is not used by `npm run dev`.
 
 ## Environment Variables
 
 Create `.env.local` for local development:
 
 ```bash
-NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
 NEXT_PUBLIC_TURN_URL=turn:your-turn-server.example.com:3478
 NEXT_PUBLIC_TURN_USERNAME=your-turn-username
 NEXT_PUBLIC_TURN_CREDENTIAL=your-turn-password
 ```
 
-`NEXT_PUBLIC_SOCKET_URL` must point to the Socket.IO signaling server URL. If it is not set, the app falls back to `http://localhost:3001`.
-
 TURN is optional. If `NEXT_PUBLIC_TURN_URL` is not set, WebRTC uses the built-in STUN server only. Set `NEXT_PUBLIC_TURN_URL`, `NEXT_PUBLIC_TURN_USERNAME`, and `NEXT_PUBLIC_TURN_CREDENTIAL` when you need TURN relay support.
 
-For production deployments such as Vercel, Render, or Railway, set `NEXT_PUBLIC_SOCKET_URL` in the platform environment variables to the public HTTPS URL of the Socket.IO server, for example:
-
-```bash
-NEXT_PUBLIC_SOCKET_URL=https://your-socket-server.example.com
-```
+The browser connects to Socket.IO on the same origin as the page.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

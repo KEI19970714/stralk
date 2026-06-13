@@ -11,14 +11,16 @@ import type {
 } from "@/components/layoutTypes";
 import { io, type Socket } from "socket.io-client";
 
-const CONFIGURED_SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL?.trim();
+const SOCKET_PATH = "/socket.io";
+const SOCKET_CONNECT_TIMEOUT_MS = 15000;
+
+type SocketConnectError = Error & {
+  description?: unknown;
+  context?: unknown;
+};
 
 function getSocketUrl() {
-  if (CONFIGURED_SOCKET_URL) {
-    return CONFIGURED_SOCKET_URL;
-  }
-
-  return `${window.location.protocol}//${window.location.hostname}:3001`;
+  return window.location.origin;
 }
 
 const TURN_URL = process.env.NEXT_PUBLIC_TURN_URL?.trim();
@@ -313,6 +315,31 @@ export default function Home() {
     }
   }, []);
 
+  const waitForSocketConnection = useCallback((socket: Socket) => {
+    if (socket.connected) {
+      return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        cleanup();
+        reject(new Error("Socket.IO connection timed out."));
+      }, SOCKET_CONNECT_TIMEOUT_MS);
+
+      const cleanup = () => {
+        window.clearTimeout(timeoutId);
+        socket.off("connect", handleConnect);
+      };
+      const handleConnect = () => {
+        cleanup();
+        resolve();
+      };
+
+      socket.once("connect", handleConnect);
+      socket.connect();
+    });
+  }, []);
+
   const createPeerConnection = useCallback(
     (socket: Socket) => {
       const existingConnection = peerConnection.current;
@@ -375,8 +402,16 @@ export default function Home() {
 
   const startSearching = useCallback(async () => {
     const socket = socketRef.current;
+    const payload = getSearchPayload();
+
+    console.log("START clicked:", {
+      socketConnected: socket?.connected ?? false,
+      socketId: socket?.id,
+      emitPayload: payload,
+    });
 
     if (!socket) {
+      console.error("START aborted: Socket.IO client is not initialized.");
       return;
     }
 
@@ -392,7 +427,10 @@ export default function Home() {
     cleanupConnection();
 
     try {
-      const stream = await ensureLocalStream();
+      const [stream] = await Promise.all([
+        ensureLocalStream(),
+        waitForSocketConnection(socket),
+      ]);
 
       if (!stream) {
         return;
@@ -402,15 +440,30 @@ export default function Home() {
         return;
       }
 
-      socket.emit("start searching", getSearchPayload());
+      if (!socket.connected) {
+        throw new Error("Socket.IO disconnected before start-search emit.");
+      }
+
+      console.log("START emitting start searching:", {
+        socketConnected: socket.connected,
+        socketId: socket.id,
+        emitPayload: payload,
+      });
+      socket.emit("start searching", payload);
     } catch (error) {
-      console.error("Camera error:", error);
+      console.error("START failed:", error);
       wantsSearchRef.current = false;
       setStatus(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-  }, [cleanupConnection, ensureLocalStream, getSearchPayload, isBanActive]);
+  }, [
+    cleanupConnection,
+    ensureLocalStream,
+    getSearchPayload,
+    isBanActive,
+    waitForSocketConnection,
+  ]);
 
   const nextPartner = useCallback(async () => {
     const socket = socketRef.current;
@@ -463,12 +516,73 @@ export default function Home() {
 
   useEffect(() => {
     const socketUrl = getSocketUrl();
-    console.log("Connecting to Socket.IO:", socketUrl);
-    const socket = io(socketUrl);
+    const socketOptions = {
+      path: SOCKET_PATH,
+    };
+
+    console.log("Client Socket.IO URL:", {
+      resolvedSocketUrl: socketUrl,
+      path: SOCKET_PATH,
+      pageUrl: window.location.href,
+    });
+    console.log("Client Socket.IO io() options:", socketOptions);
+    const socket = io(socketUrl, socketOptions);
     socketRef.current = socket;
 
     const handleConnect = () => {
-      console.log("Connected to server:", socket.id);
+      console.log("Client Socket.IO connected:", {
+        connected: socket.connected,
+        socketId: socket.id,
+        transport: socket.io.engine.transport.name,
+      });
+    };
+
+    const handleConnectError = (error: SocketConnectError) => {
+      const managerDiagnostics = socket.io as unknown as {
+        uri?: string;
+        opts: {
+          transports?: Array<string | { name?: string }>;
+        };
+        engine?: {
+          transport?: {
+            name?: string;
+          };
+        };
+      };
+      const normalizedTransports = managerDiagnostics.opts.transports?.map(
+        (transport) => {
+          if (typeof transport === "string") {
+            return transport;
+          }
+
+          const transportName = transport?.name?.toLowerCase();
+
+          return transportName === "ws" || transportName === "websocket"
+            ? "websocket"
+            : transportName || "unknown";
+        },
+      );
+
+      console.error("Client Socket.IO connect_error:", {
+        message: error.message,
+        description: error.description,
+        context: error.context,
+        socketId: socket.id,
+        transport: managerDiagnostics.engine?.transport?.name || "unknown",
+        "socket.io.uri": managerDiagnostics.uri,
+        "socket.io.opts": {
+          ...managerDiagnostics.opts,
+          transports: normalizedTransports,
+        },
+        "io() options": socketOptions,
+      });
+    };
+
+    const handleDisconnect = (reason: Socket.DisconnectReason) => {
+      console.warn("Client Socket.IO disconnected:", {
+        reason,
+        socketId: socket.id,
+      });
     };
 
     const handleMyCountry = ({ myCountry }: { myCountry?: string } = {}) => {
@@ -623,6 +737,8 @@ export default function Home() {
     };
 
     socket.on("connect", handleConnect);
+    socket.on("connect_error", handleConnectError);
+    socket.on("disconnect", handleDisconnect);
     socket.on("my-country", handleMyCountry);
     socket.on("matched", handleMatched);
     socket.on("partner disconnected", handlePartnerDisconnected);
@@ -635,6 +751,8 @@ export default function Home() {
 
     return () => {
       socket.off("connect", handleConnect);
+      socket.off("connect_error", handleConnectError);
+      socket.off("disconnect", handleDisconnect);
       socket.off("my-country", handleMyCountry);
       socket.off("matched", handleMatched);
       socket.off("partner disconnected", handlePartnerDisconnected);

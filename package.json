@@ -6,9 +6,9 @@
     "dev": "npm run dev:https",
     "dev:next": "next dev",
     "dev:socket": "node server.js",
-    "dev:https": "node scripts/generate-cert.mjs && concurrently \"node next-server.js\" \"npm run dev:socket\"",
+    "dev:https": "node scripts/generate-cert.mjs && node next-server.js",
     "build": "next build",
-    "start": "concurrently \"node next-server.js --production\" \"npm run dev:socket\"",
+    "start": "node next-server.js --production",
     "lint": "eslint"
   },
   "dependencies": {
