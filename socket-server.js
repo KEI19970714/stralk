@@ -152,9 +152,12 @@ async function fetchMyCountry(socket) {
 
   try {
     const response = await fetch(
-      `https://api.ipinfo.io/lite/${encodeURIComponent(
-        clientIp,
-      )}?token=${encodeURIComponent(IPINFO_TOKEN)}`,
+      `https://api.ipinfo.io/lite/${encodeURIComponent(clientIp)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${IPINFO_TOKEN}`,
+        },
+      },
     );
 
     if (!response.ok) {
