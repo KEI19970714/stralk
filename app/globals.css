@@ -89,6 +89,10 @@ select {
   animation: connectSettle 520ms ease both;
 }
 
+.local-video-mirror {
+  transform: scaleX(-1) !important;
+}
+
 .status-pill {
   color: #ffffff;
   transition:

@@ -135,7 +135,7 @@ export function MobileLayout({
               autoPlay
               muted
               playsInline
-              className="pointer-events-none h-full w-full object-cover transition-opacity duration-500"
+              className="local-video-mirror pointer-events-none h-full w-full object-cover transition-opacity duration-500"
             />
 
             <div className="absolute left-5 top-5 max-w-[70%]">
