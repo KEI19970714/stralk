@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   getCountryCode,
   getCountryFlag,
@@ -96,6 +97,19 @@ export function DesktopLayout({
               playsInline
               className="pointer-events-none h-full w-full object-cover transition-opacity duration-500"
             />
+
+            {status === "Idle" && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <Image
+                  src="/logo.png"
+                  alt="Stralk"
+                  width={224}
+                  height={125}
+                  priority
+                  className="h-auto w-[240px] max-w-[60%] opacity-80 [filter:drop-shadow(0_0_14px_rgba(255,255,255,0.45))]"
+                />
+              </div>
+            )}
 
             {isSearching && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/15 backdrop-blur-[1px]">
